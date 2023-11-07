@@ -133,6 +133,10 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 
 	//FVector Target = sensor->GetActorLocation();
 	//Target.Normalize();
+	GetTransform();//gets my transform
+	FVector TargetPos = sensor->GetActorLocation();//get positions
+	FVector PlayerLoc = GetActorLocation();
+
 
 	FVector PlayerV = GetActorForwardVector();
 	FVector TargetV = sensor->GetActorLocation() - GetActorForwardVector();
@@ -142,15 +146,10 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 	TargetV.Normalize();//normalize vectors for comparison
 
 	float VecClose = TargetV | PlayerV;
-	 
-	if (GEngine && VecClose > 0.9)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT(" looking at"));
-	}
-	else
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("not looking"));
-
+	
+	if (GEngine)
+	{//the %f allows the specified float to be shown in the text object.
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Variation from target(1 is locked): %f"), VecClose) );
 	}
 }
 
