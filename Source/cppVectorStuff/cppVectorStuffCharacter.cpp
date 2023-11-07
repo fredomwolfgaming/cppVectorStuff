@@ -139,8 +139,7 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 
 
 	FVector PlayerV = GetActorForwardVector();
-	FVector TargetV = sensor->GetActorLocation() - GetActorForwardVector();
-	//FVector LookVector = Target - PlayerLoc;//makes vector towards target, based on player location
+	FVector TargetV = sensor->GetActorLocation() - GetActorLocation();//makes vector towards target, based on player location
 
 	PlayerV.Normalize();
 	TargetV.Normalize();//normalize vectors for comparison
