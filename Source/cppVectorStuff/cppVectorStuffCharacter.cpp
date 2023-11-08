@@ -120,7 +120,7 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 
 	////stuff i tried...
 	////FVector PlayerLoc = GetActorLocation();//change to get camera vector
-	////FVector PlayerEnd = PlayerLoc + (GetActorForwardVector() * 100);//change 100 to line distance in editor//get camera vector
+	////FVector PlayerEnd = GetActorLocation() + (GetActorForwardVector() * 100);//change 100 to line distance in editor//get camera vector
 	////FVector Target =  (sensor->GetActorLocation());//get actor location of the attached sensor
 	////FVector TargetEnd = Target + (sensor->GetActorForwardVector() * 100);
 	////FVector targetEnd = Start + (sensor->GetActorForwardVector() * 100);
@@ -138,22 +138,29 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 
 	//FVector PlayerV = GetActorForwardVector();//somehow convert rotation vector of camera to FVector for comparison. turns out camera component has a get forward vector. 
 	//i cant find enough documentation on how unreal makes the FVectors and FRotators to break them down and compare them.
-	FVector TargetV = sensor->GetActorLocation() - GetActorLocation();//makes vector towards target, based on player location
-	FVector PlayerV = FirstPersonCameraComponent->GetForwardVector();//get the forward FVector of the camera component.
+	
+	
+	FVector PlayerStart = FirstPersonCameraComponent->GetComponentLocation();
+	FVector PlayerEnd = FirstPersonCameraComponent->GetComponentLocation() + (FirstPersonCameraComponent->GetForwardVector() * 100);
+	DrawDebugLine(GetWorld(), PlayerStart, PlayerEnd, FColor::Blue);//detach from player to see, otherwise it's a single unit, less than a pixel.
 
-	PlayerV.Normalize();
+
+	FVector TargetV = sensor->GetActorLocation() - FirstPersonCameraComponent->GetComponentLocation();//makes vector towards target, based on player location and sensor location.
+	FVector PlayerV = FirstPersonCameraComponent->GetForwardVector();//get the forward FVector of the camera component. where ya looking.
+	//DrawDebugLine(GetWorld(), GetTargetLocation(), sensor->GetActorLocation(), FColor::Orange);//allows player to track where the sensor is
+	DrawDebugLine(GetWorld(), FirstPersonCameraComponent->GetComponentLocation(), sensor->GetActorLocation(), FColor::Orange);//allows player to track where the sensor is
 	TargetV.Normalize();//normalize vectors for comparison.returns bool when used inline, so cant use during set
 
-	float VecClose = TargetV | PlayerV;
-
+	float VecSimilar = PlayerV | TargetV;
+	//float VecSimilar = FVector::DotProduct(PlayerV, TargetV);
 
 	if (GEngine)
 	{		
-		FColor PrintAligned = (VecClose > 0.9991f) ? FColor::Green : FColor::Red ;
+		FColor PrintAligned = (VecSimilar > 0.9991f) ? FColor::Green : FColor::Red ;
 		//0.9991 or higher is on target
 		// IF close enough, then change the print color to green
 
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, PrintAligned, FString::Printf(TEXT("Similarity to target: %f"), VecClose));
+		GEngine->AddOnScreenDebugMessage(-1, 0.1f, PrintAligned, FString::Printf(TEXT("Similarity to target: %f"), VecSimilar));
 		//the %f allows the specified float to be shown in the text object.
 	}
 
