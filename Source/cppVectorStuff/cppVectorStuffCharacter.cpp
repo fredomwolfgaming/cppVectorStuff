@@ -118,38 +118,45 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	//FVector PlayerLoc = GetActorLocation();//change to get camera vector
-	//FVector PlayerEnd = PlayerLoc + (GetActorForwardVector() * 100);//change 100 to line distance in editor//get camera vector
-	//FVector Target =  (sensor->GetActorLocation());//get actor location of the attached sensor
-	//FVector TargetEnd = Target + (sensor->GetActorForwardVector() * 100);
-	//FVector targetEnd = Start + (sensor->GetActorForwardVector() * 100);
-	//sensor->GetActorForwardVector() // access sensor, and run func. returns sensors foward vector
+	////stuff i tried...
+	////FVector PlayerLoc = GetActorLocation();//change to get camera vector
+	////FVector PlayerEnd = PlayerLoc + (GetActorForwardVector() * 100);//change 100 to line distance in editor//get camera vector
+	////FVector Target =  (sensor->GetActorLocation());//get actor location of the attached sensor
+	////FVector TargetEnd = Target + (sensor->GetActorForwardVector() * 100);
+	////FVector targetEnd = Start + (sensor->GetActorForwardVector() * 100);
+	////sensor->GetActorForwardVector() // access sensor, and run func. returns sensors forward vector
 
-	//DrawDebugLine(GetWorld(), Target, TargetEnd, FColor::Green);
-	//DrawDebugLine(GetWorld(), PlayerLoc, PlayerEnd, FColor::Blue);
+	////DrawDebugLine(GetWorld(), Target, TargetEnd, FColor::Green);
+	////DrawDebugLine(GetWorld(), PlayerLoc, PlayerEnd, FColor::Blue);
+	//
+	////FRotator TargetLook = FirstPersonCameraComponent->GetRelativeRotation();//returns FRotator, which cannot be compared to the FVector location
+
+	////FVector Target = sensor->GetActorLocation();
+	////Target.Normalize();
 	
-	//FVector TargetLook = GetActorForwardVector();
-	//TargetLook.Normalize();
+	//solution---------------------
 
-	//FVector Target = sensor->GetActorLocation();
-	//Target.Normalize();
-	GetTransform();//gets my transform
-	FVector TargetPos = sensor->GetActorLocation();//get positions
-	FVector PlayerLoc = GetActorLocation();
-
-
-	FVector PlayerV = GetActorForwardVector();
+	//FVector PlayerV = GetActorForwardVector();//somehow convert rotation vector of camera to FVector for comparison. turns out camera component has a get forward vector. 
+	//i cant find enough documentation on how unreal makes the FVectors and FRotators to break them down and compare them.
 	FVector TargetV = sensor->GetActorLocation() - GetActorLocation();//makes vector towards target, based on player location
+	FVector PlayerV = FirstPersonCameraComponent->GetForwardVector();//get the forward FVector of the camera component.
 
 	PlayerV.Normalize();
-	TargetV.Normalize();//normalize vectors for comparison
+	TargetV.Normalize();//normalize vectors for comparison.returns bool when used inline, so cant use during set
 
 	float VecClose = TargetV | PlayerV;
-	
+
+
 	if (GEngine)
-	{//the %f allows the specified float to be shown in the text object.
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Variation from target(1 is locked): %f"), VecClose) );
+	{		
+		FColor PrintAligned = (VecClose > 0.9991f) ? FColor::Green : FColor::Red ;
+		//0.9991 or higher is on target
+		// IF close enough, then change the print color to green
+
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, PrintAligned, FString::Printf(TEXT("Similarity to target: %f"), VecClose));
+		//the %f allows the specified float to be shown in the text object.
 	}
+
 }
 
 
