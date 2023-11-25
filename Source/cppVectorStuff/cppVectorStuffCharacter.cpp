@@ -200,8 +200,14 @@ void AcppVectorStuffCharacter::SetupPlayerInputComponent(class UInputComponent* 
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AcppVectorStuffCharacter::LookUpAtRate);
 }
 
+void AcppVectorStuffCharacter::SendTrace()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Orange, FString::Printf(TEXT("traced")));
+}
+
 void AcppVectorStuffCharacter::OnFire()
 {
+	SendTrace();
 	// try and fire a projectile
 	if (ProjectileClass != nullptr)
 	{

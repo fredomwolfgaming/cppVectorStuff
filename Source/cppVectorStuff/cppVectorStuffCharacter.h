@@ -68,6 +68,10 @@ protected:
 //	virtual void Tick();forgot to define argument type
 
 public:
+	/** testing how it works */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=script)
+	FVector Testing;
+
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
 	float BaseTurnRate;
@@ -97,7 +101,8 @@ public:
 	uint8 bUsingMotionControllers : 1;
 
 protected:
-	
+	void SendTrace();
+
 	/** Fires a projectile. */
 	void OnFire();
 
