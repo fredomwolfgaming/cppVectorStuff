@@ -154,6 +154,10 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 	float VecSimilar = PlayerV | TargetV;
 	//float VecSimilar = FVector::DotProduct(PlayerV, TargetV);
 
+	FHitResult NewHit;
+	FCollisionQueryParams CollisionParams;
+	ActorLineTraceSingle(NewHit, PlayerStart, PlayerEnd, ECC_Visibility, CollisionParams);
+
 	if (GEngine)
 	{		
 		FColor PrintAligned = (VecSimilar > 0.9991f) ? FColor::Green : FColor::Red ;
@@ -165,7 +169,14 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 	}
 
 }
+/*as used in unreal engine math function./Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
+FVector FMath::GetReflectionVector(const FVector& Direction, const FVector& SurfaceNormal)
+{
+	FVector SafeNormal(SurfaceNormal.GetSafeNormal());
 
+	return Direction - 2 * (Direction | SafeNormal) * SafeNormal;
+}
+*/
 
 //////////////////////////////////////////////////////////////////////////
 // Input
