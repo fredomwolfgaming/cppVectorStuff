@@ -189,12 +189,6 @@ void AcppVectorStuffCharacter::SetupPlayerInputComponent(class UInputComponent* 
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AcppVectorStuffCharacter::LookUpAtRate);
 }
 
-FVector GPS(FVector NewVector, FVector Origin, float Foward)
-{
-	return Origin + NewVector * Foward;
-}//local use only
-
-
 FVector ReflectMe(FVector ImpactPoint, FVector StartPoint, FVector ImpactSurfaceNormal)
 {//or as the blueprint asks: direction vector, and surface normal
 	/////EQUASION///
@@ -212,48 +206,62 @@ FVector ReflectMe(FVector ImpactPoint, FVector StartPoint, FVector ImpactSurface
 	return (ImpactPoint - StartPoint) - (((ImpactPoint - StartPoint) | ImpactSurfaceNormal) * 2 * ImpactSurfaceNormal);
 }//local use only
 
+void ReportHit(FHitResult HitIn, int Index)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("Hit %i stats:"), Index));
+
+	//report impact if hit
+	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("hit %i X value %f"), Index, HitIn.ImpactPoint.X));
+	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("hit %i Y value %f"), Index, HitIn.ImpactPoint.Y));
+	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("hit %i Z value %f"), Index, HitIn.ImpactPoint.Z));
+}//local use only
+
 void AcppVectorStuffCharacter::SendTrace()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Emerald, FString::Printf(TEXT("Banging")));
+	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("Tracing")));
 
-	//move this to onFire
+
 	//reusables
-	float Foward = 10000;
+	float Foward = 1000;
 	FColor RayColor = FColor::Blue;
 	FHitResult NewHit;//hit result storage https://docs.unrealengine.com/4.26/en-US/API/Runtime/Engine/Engine/FHitResult/
 	FCollisionQueryParams CollisionParams;//uses default settings https://docs.unrealengine.com/5.3/en-US/API/Runtime/Engine/FCollisionQueryParams/
-	float same;
 
+	//inital starting values hopefully based on gun, but if not then based on camera, override to impact point after first hit
+	FVector StartPoint = (IsValid(FP_Gun)) ? FP_Gun->GetComponentLocation() : FirstPersonCameraComponent->GetComponentLocation();
+	//inital vector to cast towards. override to a reflection of the incoming vector at hit point, use ReflectMe
+	FVector StartVector = FirstPersonCameraComponent->GetForwardVector();
+	
+	//build line trace - not overridden
+	FVector EndPoint = StartPoint + StartVector * Foward;
+	bool bOnHit = GetWorld()->LineTraceSingleByChannel(NewHit, StartPoint, EndPoint, ECC_Visibility, CollisionParams);
 
-	//build inital raycast
-
-	//Destination = FirstPersonCameraComponent->GetForwardVector() * Foward +  FirstPersonCameraComponent->GetComponentLocation();//recalculate
-
-	DrawDebugLine(GetWorld(), FirstPersonCameraComponent->GetComponentLocation(), FirstPersonCameraComponent->GetForwardVector() * Foward + FirstPersonCameraComponent->GetComponentLocation(), RayColor, false, 3.0f);//visible copy
-	if (ActorLineTraceSingle(NewHit, FirstPersonCameraComponent->GetComponentLocation(), FirstPersonCameraComponent->GetForwardVector() * Foward + FirstPersonCameraComponent->GetComponentLocation(), ECC_WorldStatic, CollisionParams)) //check blueprint to see how the math flows.//if hit:
+	DrawDebugLine(GetWorld(), StartPoint, EndPoint, RayColor, false, 3.0f);//draw something visible
+	if (bOnHit)
 	{
-		same = NewHit.ImpactPoint | NewHit.TraceStart;
-		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Emerald, FString::Printf(TEXT("origin"), same));
-		//used to tell if something has changed
-		
-		//build relative raycast from reflection
-		//(ImpactPoint - StartPoint) - (((ImpactPoint - StartPoint) | ImpactSurfaceNormal) * 2 * ImpactSurfaceNormal);
-		DrawDebugLine(GetWorld(), NewHit.ImpactPoint, (NewHit.ImpactPoint - NewHit.TraceStart) - (((NewHit.ImpactPoint - NewHit.TraceStart) | NewHit.ImpactNormal) * 2 * NewHit.ImpactNormal), RayColor, false, 3.0f);//visible copy
-		FHitResult Hit2;
-		ActorLineTraceSingle(Hit2, NewHit.ImpactPoint, (NewHit.ImpactPoint - NewHit.TraceStart) - (((NewHit.ImpactPoint - NewHit.TraceStart) | NewHit.ImpactNormal) * 2 * NewHit.ImpactNormal), ECC_WorldStatic, CollisionParams); //check blueprint to see how the math flows.//if hit:
-		
-		same = Hit2.ImpactPoint | Hit2.TraceStart;
-		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Emerald, FString::Printf(TEXT("2 hit %f"), same));
-		//used to tell if something has changed
+		ReportHit(NewHit, 1);
 
-		
+		//update to use hit details.
+		StartPoint = NewHit.ImpactPoint;
+		//reflect old vector across impact surface normal
+		StartVector = ReflectMe(NewHit.ImpactPoint, StartPoint, NewHit.ImpactNormal);
+
+		//start of for loop
+		//perform new line traces
+		DrawDebugLine(GetWorld(), StartPoint, EndPoint, RayColor, false, 3.0f);//draw something visible
+		if (bOnHit) //check blueprint to see how the math flows.//if hit:
+		{
+			ReportHit(NewHit, 2);//is reporting same as previous
+		}
+		else { GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("trace %i is a dud."), 2)); }//if trace fails
+		//end of for loop
 	}
-	else { GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Emerald, FString::Printf(TEXT("DUD"))); }
+	else { GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("trace %i is a dud."), 1)); }//if trace fails
 }
 
 void AcppVectorStuffCharacter::OnFire()
 {
-	//SendTrace();
+	SendTrace();
 	// try and fire a projectile
 	if (ProjectileClass != nullptr)
 	{
