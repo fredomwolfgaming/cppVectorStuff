@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "cppVectorStuffCharacter.h"
 #include "cppVectorStuffProjectile.h"
@@ -116,57 +116,35 @@ void AcppVectorStuffCharacter::BeginPlay()
 //FVector camForward  = camManager->GetCameraRotation().Vector();
 void AcppVectorStuffCharacter::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+	Super::Tick(DeltaTime);//on tick event
 
-	////stuff i tried...
-	////FVector PlayerLoc = GetActorLocation();//change to get camera vector
-	////FVector PlayerEnd = GetActorLocation() + (GetActorForwardVector() * 100);//change 100 to line distance in editor//get camera vector
-	////FVector Target =  (sensor->GetActorLocation());//get actor location of the attached sensor
-	////FVector TargetEnd = Target + (sensor->GetActorForwardVector() * 100);
-	////FVector targetEnd = Start + (sensor->GetActorForwardVector() * 100);
-	////sensor->GetActorForwardVector() // access sensor, and run func. returns sensors forward vector
-
-	////DrawDebugLine(GetWorld(), Target, TargetEnd, FColor::Green);
-	////DrawDebugLine(GetWorld(), PlayerLoc, PlayerEnd, FColor::Blue);
 	//
-	////FRotator TargetLook = FirstPersonCameraComponent->GetRelativeRotation();//returns FRotator, which cannot be compared to the FVector location
+	//////compare camera vector to target using dot products/////////////////
+	//FVector PlayerStart = FirstPersonCameraComponent->GetComponentLocation();
+	//FVector PlayerEnd = FirstPersonCameraComponent->GetComponentLocation() + (FirstPersonCameraComponent->GetForwardVector() * 100);
+	////DrawDebugLine(GetWorld(), PlayerStart, PlayerEnd, FColor::Blue);//detach from player to see, otherwise it's a single unit, less than a pixel.
 
-	////FVector Target = sensor->GetActorLocation();
-	////Target.Normalize();
+
+	//FVector TargetV = sensor->GetActorLocation() - FirstPersonCameraComponent->GetComponentLocation();//makes vector towards target, based on player location and sensor location.
+	//FVector PlayerV = FirstPersonCameraComponent->GetForwardVector();//get the forward FVector of the camera component. where ya looking.
+	////DrawDebugLine(GetWorld(), FirstPersonCameraComponent->GetComponentLocation(), sensor->GetActorLocation(), FColor::Orange);// track where the sensor is
+	//TargetV.Normalize();//normalize vectors for comparison.returns bool when used inline, so cant use during set
+
+	//float VecSimilar = PlayerV | TargetV;
+	////float VecSimilar = FVector::DotProduct(PlayerV, TargetV);
+
+	//if (GEngine)
+	//{		
+	//	FColor PrintAligned = (VecSimilar > 0.9991f) ? FColor::Green : FColor::Red ;
+	//	//0.9991 or higher is on target
+	//	// IF close enough, then change the print color to green
+
+	//	GEngine->AddOnScreenDebugMessage(-1, 0.1f, PrintAligned, FString::Printf(TEXT("Similarity to target: %f"), VecSimilar));
+	//	//the %f allows the specified float to be shown in the text object.
+	//}////////////////////////////////////////////////////////////
+
+
 	
-	//solution---------------------
-
-	//FVector PlayerV = GetActorForwardVector();//somehow convert rotation vector of camera to FVector for comparison. turns out camera component has a get forward vector. 
-	//i cant find enough documentation on how unreal makes the FVectors and FRotators to break them down and compare them.
-	
-	
-	FVector PlayerStart = FirstPersonCameraComponent->GetComponentLocation();
-	FVector PlayerEnd = FirstPersonCameraComponent->GetComponentLocation() + (FirstPersonCameraComponent->GetForwardVector() * 100);
-	DrawDebugLine(GetWorld(), PlayerStart, PlayerEnd, FColor::Blue);//detach from player to see, otherwise it's a single unit, less than a pixel.
-
-
-	FVector TargetV = sensor->GetActorLocation() - FirstPersonCameraComponent->GetComponentLocation();//makes vector towards target, based on player location and sensor location.
-	FVector PlayerV = FirstPersonCameraComponent->GetForwardVector();//get the forward FVector of the camera component. where ya looking.
-	//DrawDebugLine(GetWorld(), GetTargetLocation(), sensor->GetActorLocation(), FColor::Orange);//allows player to track where the sensor is
-	DrawDebugLine(GetWorld(), FirstPersonCameraComponent->GetComponentLocation(), sensor->GetActorLocation(), FColor::Orange);//allows player to track where the sensor is
-	TargetV.Normalize();//normalize vectors for comparison.returns bool when used inline, so cant use during set
-
-	float VecSimilar = PlayerV | TargetV;
-	//float VecSimilar = FVector::DotProduct(PlayerV, TargetV);
-
-	FHitResult NewHit;
-	FCollisionQueryParams CollisionParams;
-	ActorLineTraceSingle(NewHit, PlayerStart, PlayerEnd, ECC_Visibility, CollisionParams);
-
-	if (GEngine)
-	{		
-		FColor PrintAligned = (VecSimilar > 0.9991f) ? FColor::Green : FColor::Red ;
-		//0.9991 or higher is on target
-		// IF close enough, then change the print color to green
-
-		GEngine->AddOnScreenDebugMessage(-1, 0.1f, PrintAligned, FString::Printf(TEXT("Similarity to target: %f"), VecSimilar));
-		//the %f allows the specified float to be shown in the text object.
-	}
 
 }
 /*as used in unreal engine math function./Engine/Source/Runtime/Core/Private/Math/UnrealMath.cpp
@@ -211,14 +189,71 @@ void AcppVectorStuffCharacter::SetupPlayerInputComponent(class UInputComponent* 
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AcppVectorStuffCharacter::LookUpAtRate);
 }
 
+FVector GPS(FVector NewVector, FVector Origin, float Foward)
+{
+	return Origin + NewVector * Foward;
+}//local use only
+
+
+FVector ReflectMe(FVector ImpactPoint, FVector StartPoint, FVector ImpactSurfaceNormal)
+{//or as the blueprint asks: direction vector, and surface normal
+	/////EQUASION///
+	//OriginPoint + Vector = DestinationPoint
+	//Vector = DestinationPoint - OriginPoint
+	//translated to linetraces: OriginVector = (ImpactPoint - StartPoint)
+	// 
+	// to reflect a vector across a surface normal // http://www.sunshine2k.de/articles/coding/vectorreflection/vectorreflection.html
+	//v - 2 * (v | n) * n //incoming vector = v // surface normal = n// | is dot product FVector operator
+	//
+	//OldVector = (HitResult.ImpactPoint - HitResult.StartPoint)
+	//NewVector = OldVector - ((OldVector | HitResult.ImpactNormal) * 2 * HitResult.ImpactNormal);//reflected to form new vector
+
+	//dont waste memory for a one off
+	return (ImpactPoint - StartPoint) - (((ImpactPoint - StartPoint) | ImpactSurfaceNormal) * 2 * ImpactSurfaceNormal);
+}//local use only
+
 void AcppVectorStuffCharacter::SendTrace()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Orange, FString::Printf(TEXT("traced")));
+	GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Emerald, FString::Printf(TEXT("Banging")));
+
+	//move this to onFire
+	//reusables
+	float Foward = 10000;
+	FColor RayColor = FColor::Blue;
+	FHitResult NewHit;//hit result storage https://docs.unrealengine.com/4.26/en-US/API/Runtime/Engine/Engine/FHitResult/
+	FCollisionQueryParams CollisionParams;//uses default settings https://docs.unrealengine.com/5.3/en-US/API/Runtime/Engine/FCollisionQueryParams/
+	float same;
+
+
+	//build inital raycast
+
+	//Destination = FirstPersonCameraComponent->GetForwardVector() * Foward +  FirstPersonCameraComponent->GetComponentLocation();//recalculate
+
+	DrawDebugLine(GetWorld(), FirstPersonCameraComponent->GetComponentLocation(), FirstPersonCameraComponent->GetForwardVector() * Foward + FirstPersonCameraComponent->GetComponentLocation(), RayColor, false, 3.0f);//visible copy
+	if (ActorLineTraceSingle(NewHit, FirstPersonCameraComponent->GetComponentLocation(), FirstPersonCameraComponent->GetForwardVector() * Foward + FirstPersonCameraComponent->GetComponentLocation(), ECC_WorldStatic, CollisionParams)) //check blueprint to see how the math flows.//if hit:
+	{
+		same = NewHit.ImpactPoint | NewHit.TraceStart;
+		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Emerald, FString::Printf(TEXT("origin"), same));
+		//used to tell if something has changed
+		
+		//build relative raycast from reflection
+		//(ImpactPoint - StartPoint) - (((ImpactPoint - StartPoint) | ImpactSurfaceNormal) * 2 * ImpactSurfaceNormal);
+		DrawDebugLine(GetWorld(), NewHit.ImpactPoint, (NewHit.ImpactPoint - NewHit.TraceStart) - (((NewHit.ImpactPoint - NewHit.TraceStart) | NewHit.ImpactNormal) * 2 * NewHit.ImpactNormal), RayColor, false, 3.0f);//visible copy
+		FHitResult Hit2;
+		ActorLineTraceSingle(Hit2, NewHit.ImpactPoint, (NewHit.ImpactPoint - NewHit.TraceStart) - (((NewHit.ImpactPoint - NewHit.TraceStart) | NewHit.ImpactNormal) * 2 * NewHit.ImpactNormal), ECC_WorldStatic, CollisionParams); //check blueprint to see how the math flows.//if hit:
+		
+		same = Hit2.ImpactPoint | Hit2.TraceStart;
+		GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Emerald, FString::Printf(TEXT("2 hit %f"), same));
+		//used to tell if something has changed
+
+		
+	}
+	else { GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Emerald, FString::Printf(TEXT("DUD"))); }
 }
 
 void AcppVectorStuffCharacter::OnFire()
 {
-	SendTrace();
+	//SendTrace();
 	// try and fire a projectile
 	if (ProjectileClass != nullptr)
 	{
