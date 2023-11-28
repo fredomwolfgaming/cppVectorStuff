@@ -117,6 +117,7 @@ void AcppVectorStuffCharacter::BeginPlay()
 void AcppVectorStuffCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);//on tick event
+	//SendTrace();only for debugging
 
 	//
 	//////compare camera vector to target using dot products/////////////////
@@ -189,7 +190,17 @@ void AcppVectorStuffCharacter::SetupPlayerInputComponent(class UInputComponent* 
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AcppVectorStuffCharacter::LookUpAtRate);
 }
 
-FVector ReflectMe(FVector ImpactPoint, FVector StartPoint, FVector ImpactSurfaceNormal)
+void ReportHit(FHitResult HitIn, int Index, float time)
+{
+	GEngine->AddOnScreenDebugMessage(-1, time, FColor::Emerald, FString::Printf(TEXT("Hit %i stats:"), Index));
+
+	//report impact if hit
+	GEngine->AddOnScreenDebugMessage(-1, time, FColor::Emerald, FString::Printf(TEXT("hit %i X value %f"), Index, HitIn.ImpactPoint.X));
+	GEngine->AddOnScreenDebugMessage(-1, time, FColor::Emerald, FString::Printf(TEXT("hit %i Y value %f"), Index, HitIn.ImpactPoint.Y));
+	GEngine->AddOnScreenDebugMessage(-1, time, FColor::Emerald, FString::Printf(TEXT("hit %i Z value %f"), Index, HitIn.ImpactPoint.Z));
+}//local use only
+
+FVector ReflectMe(FVector StartPoint, FVector ImpactPoint, FVector ImpactSurfaceNormal)
 {//or as the blueprint asks: direction vector, and surface normal
 	/////EQUASION///
 	//OriginPoint + Vector = DestinationPoint
@@ -202,61 +213,69 @@ FVector ReflectMe(FVector ImpactPoint, FVector StartPoint, FVector ImpactSurface
 	//OldVector = (HitResult.ImpactPoint - HitResult.StartPoint)
 	//NewVector = OldVector - ((OldVector | HitResult.ImpactNormal) * 2 * HitResult.ImpactNormal);//reflected to form new vector
 
-	//dont waste memory for a one off
+	//don't need to waste memory for a one off calculation just to make it look half it's length
 	return (ImpactPoint - StartPoint) - (((ImpactPoint - StartPoint) | ImpactSurfaceNormal) * 2 * ImpactSurfaceNormal);
 }//local use only
 
-void ReportHit(FHitResult HitIn, int Index)
+FVector ReflectedEndPointCalc(FHitResult LineTraceHitIn, float DistanceAway)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("Hit %i stats:"), Index));
-
-	//report impact if hit
-	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("hit %i X value %f"), Index, HitIn.ImpactPoint.X));
-	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("hit %i Y value %f"), Index, HitIn.ImpactPoint.Y));
-	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("hit %i Z value %f"), Index, HitIn.ImpactPoint.Z));
-}//local use only
+	//explanation
+	//destination(the end of your road trip) 
+	// = origin(place on the map your starting at)
+	//	 + Vector(think the Direction of how to get to a destination) 
+	//	   * distance(how far from the starting point to go, while following the instructions)
+	// 
+	////visualization
+	//imagine your a blind autopilot. so you start driving from the origin. the vector gives you instructions on how to travel(a simple direction like head east), and when those instructions are combined with a distance parameter:
+	// you will travel to a destination, from a beginning point, by following the instructions for a certain distance, therefore arriving at the destination
+	// 
+	// //mathy version
+	//FVector EndPoint = (neworigin(impact) + getReflectVector(LineTraceHitIn.TraceStart, LineTraceHitIn.ImpactPoint, LineTraceHitIn.ImpactNormal) * DistanceToExtend);
+	return LineTraceHitIn.ImpactPoint + ReflectMe(LineTraceHitIn.TraceStart, LineTraceHitIn.ImpactPoint, LineTraceHitIn.ImpactNormal) * DistanceAway;
+}
 
 void AcppVectorStuffCharacter::SendTrace()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("Tracing")));
+	//GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("now Tracing")));//check if call works properly
 
+	//notes
+	//FHitResult *NullifyHit = &HitResult; //pointer = memory address of this thing//used to nullify if needed.
+	//keep in mind, update on define, not on get(variable) call. update on call is a function feature that needs built
 
-	//reusables
-	float Foward = 1000;
+	//constants
+	float Foward = 10000;
 	FColor RayColor = FColor::Blue;
-	FHitResult NewHit;//hit result storage https://docs.unrealengine.com/4.26/en-US/API/Runtime/Engine/Engine/FHitResult/
 	FCollisionQueryParams CollisionParams;//uses default settings https://docs.unrealengine.com/5.3/en-US/API/Runtime/Engine/FCollisionQueryParams/
-
-	//inital starting values hopefully based on gun, but if not then based on camera, override to impact point after first hit
-	FVector StartPoint = (IsValid(FP_Gun)) ? FP_Gun->GetComponentLocation() : FirstPersonCameraComponent->GetComponentLocation();
-	//inital vector to cast towards. override to a reflection of the incoming vector at hit point, use ReflectMe
-	FVector StartVector = FirstPersonCameraComponent->GetForwardVector();
+	int length = 4;//can make editor editable varaible later//reflections
+	float DebugMessageTime = 10.0f;
 	
-	//build line trace - not overridden
-	FVector EndPoint = StartPoint + StartVector * Foward;
-	bool bOnHit = GetWorld()->LineTraceSingleByChannel(NewHit, StartPoint, EndPoint, ECC_Visibility, CollisionParams);
+	//hit storage
+	FHitResult HitResult;//hit result storage https://docs.unrealengine.com/4.26/en-US/API/Runtime/Engine/Engine/FHitResult/
 
-	DrawDebugLine(GetWorld(), StartPoint, EndPoint, RayColor, false, 3.0f);//draw something visible
-	if (bOnHit)
+	//update on iteration using hits
+	//inital starting values hopefully based on gun, but if not then based on camera.
+	FVector StartPoint = (IsValid(FP_Gun)) ? FP_Gun->GetComponentLocation() : FirstPersonCameraComponent->GetComponentLocation();
+
+	//inital vector to trace along. start + vectorDirection * distanceTraveled
+	FVector EndPoint = StartPoint + FirstPersonCameraComponent->GetForwardVector() * Foward;
+
+
+	for (size_t i = 0; i < length; i++)
 	{
-		ReportHit(NewHit, 1);
-
-		//update to use hit details.
-		StartPoint = NewHit.ImpactPoint;
-		//reflect old vector across impact surface normal
-		StartVector = ReflectMe(NewHit.ImpactPoint, StartPoint, NewHit.ImpactNormal);
-
-		//start of for loop
-		//perform new line traces
 		DrawDebugLine(GetWorld(), StartPoint, EndPoint, RayColor, false, 3.0f);//draw something visible
-		if (bOnHit) //check blueprint to see how the math flows.//if hit:
+		if (GetWorld()->LineTraceSingleByChannel(HitResult, StartPoint, EndPoint, ECC_Visibility, CollisionParams))
 		{
-			ReportHit(NewHit, 2);//is reporting same as previous
+			GEngine->AddOnScreenDebugMessage(-1, DebugMessageTime, FColor::Emerald, FString::Printf(TEXT("trace %i is a HIt."), i));
+			ReportHit(HitResult, i, DebugMessageTime);
+
+			//update using hit details.
+			StartPoint = HitResult.ImpactPoint;
+			EndPoint = ReflectedEndPointCalc(HitResult, Foward);
 		}
-		else { GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("trace %i is a dud."), 2)); }//if trace fails
-		//end of for loop
+		else { GEngine->AddOnScreenDebugMessage(-1, DebugMessageTime, FColor::Emerald, FString::Printf(TEXT("trace %i is a dud."), i)); }//if trace fails
 	}
-	else { GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("trace %i is a dud."), 1)); }//if trace fails
+	
+	//still some engine based bugs, not all surfaces will trigger on visibility layer it seems. otherwise the math works fine.
 }
 
 void AcppVectorStuffCharacter::OnFire()
