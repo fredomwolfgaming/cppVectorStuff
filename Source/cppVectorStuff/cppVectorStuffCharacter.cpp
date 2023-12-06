@@ -234,7 +234,7 @@ FVector ReflectedEndPointCalc(FHitResult LineTraceHitIn, float DistanceAway)
 	return LineTraceHitIn.ImpactPoint + ReflectMe(LineTraceHitIn.TraceStart, LineTraceHitIn.ImpactPoint, LineTraceHitIn.ImpactNormal) * DistanceAway;
 }
 
-void AcppVectorStuffCharacter::SendTrace()
+void AcppVectorStuffCharacter::SendTrace()//callable in blueprint
 {
 	//GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Emerald, FString::Printf(TEXT("now Tracing")));//check if call works properly
 
@@ -280,7 +280,7 @@ void AcppVectorStuffCharacter::SendTrace()
 
 void AcppVectorStuffCharacter::OnFire()
 {
-	SendTrace();
+	//SendTrace();
 	// try and fire a projectile
 	if (ProjectileClass != nullptr)
 	{

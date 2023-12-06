@@ -68,6 +68,7 @@ protected:
 //	virtual void Tick();forgot to define argument type
 
 public:
+
 	/** testing how it works */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=script)
 	FVector Testing;
@@ -100,8 +101,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	uint8 bUsingMotionControllers : 1;
 
+	UFUNCTION(BlueprintCallable, Category=Gameplay)
+	void SendTrace();//needs category
+
 protected:
-	void SendTrace();
+	
 
 	/** Fires a projectile. */
 	void OnFire();
