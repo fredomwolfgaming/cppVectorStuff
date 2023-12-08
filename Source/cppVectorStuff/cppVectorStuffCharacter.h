@@ -104,6 +104,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Gameplay)
 	void SendTrace();//needs category
 
+	UFUNCTION(BlueprintCallable, Category = Gameplay)
+	void LookAt();//needs category
+
 protected:
 	
 

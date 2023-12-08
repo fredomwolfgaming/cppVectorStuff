@@ -122,7 +122,7 @@ void AcppVectorStuffCharacter::Tick(float DeltaTime)
 	//SendTrace();only for debugging
 
 	//
-	//////compare camera vector to target using dot products/////////////////
+	////////compare camera vector to target using dot products/////////////////
 	//FVector PlayerStart = FirstPersonCameraComponent->GetComponentLocation();
 	//FVector PlayerEnd = FirstPersonCameraComponent->GetComponentLocation() + (FirstPersonCameraComponent->GetForwardVector() * 100);
 	////DrawDebugLine(GetWorld(), PlayerStart, PlayerEnd, FColor::Blue);//detach from player to see, otherwise it's a single unit, less than a pixel.
@@ -278,6 +278,33 @@ void AcppVectorStuffCharacter::SendTrace()//callable in blueprint
 	}
 	
 	//still some engine based bugs, not all surfaces will trigger on visibility layer it seems. otherwise the math works fine.
+}
+
+void AcppVectorStuffCharacter::LookAt()//callable in blueprint
+{
+	//////compare camera vector to target using dot products/////////////////
+	FVector PlayerStart = FirstPersonCameraComponent->GetComponentLocation();
+	FVector PlayerEnd = FirstPersonCameraComponent->GetComponentLocation() + (FirstPersonCameraComponent->GetForwardVector() * 100);
+	//DrawDebugLine(GetWorld(), PlayerStart, PlayerEnd, FColor::Blue);//detach from player to see, otherwise it's a single unit, less than a pixel.
+
+
+	FVector TargetV = sensor->GetActorLocation() - FirstPersonCameraComponent->GetComponentLocation();//makes vector towards target, based on player location and sensor location.
+	FVector PlayerV = FirstPersonCameraComponent->GetForwardVector();//get the forward FVector of the camera component. where ya looking.
+	//DrawDebugLine(GetWorld(), FirstPersonCameraComponent->GetComponentLocation(), sensor->GetActorLocation(), FColor::Orange);// track where the sensor is
+	TargetV.Normalize();//normalize vectors for comparison.returns bool when used inline, so cant use during set
+
+	float VecSimilar = PlayerV | TargetV;
+	//float VecSimilar = FVector::DotProduct(PlayerV, TargetV);
+
+	if (GEngine)
+	{
+		FColor PrintAligned = (VecSimilar > 0.9991f) ? FColor::Green : FColor::Red;
+		//0.9991 or higher is on target
+		// IF close enough, then change the print color to green
+
+		GEngine->AddOnScreenDebugMessage(-1, 0.02f, PrintAligned, FString::Printf(TEXT("Similarity to target: %f"), VecSimilar));
+		//the %f allows the specified float to be shown in the text object.
+	}////////////////////////////////////////////////////////////
 }
 
 void AcppVectorStuffCharacter::OnFire()
